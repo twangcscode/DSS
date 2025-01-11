@@ -3,10 +3,16 @@ ENV LANG en_US.UTF-8
 ENV LC_ALL en_US.UTF-8
 
 COPY dss-ansible/artifacts/aws-sdk-cpp-*.rpm ./
-RUN set -eux \
-    && yum install -y \
+RUN set -eux && \
+    sed -i s/mirror.centos.org/vault.centos.org/g /etc/yum.repos.d/*.repo && \
+    sed -i s/^#.*baseurl=http/baseurl=http/g /etc/yum.repos.d/*.repo && \
+    sed -i s/^mirrorlist=http/#mirrorlist=http/g /etc/yum.repos.d/*.repo && \ 
+    yum install -y \
         epel-release \
         centos-release-scl-rh && \
+    sed -i s/mirror.centos.org/vault.centos.org/g /etc/yum.repos.d/*.repo && \
+    sed -i s/^#.*baseurl=http/baseurl=http/g /etc/yum.repos.d/*.repo && \
+    sed -i s/^mirrorlist=http/#mirrorlist=http/g /etc/yum.repos.d/*.repo && \ 
     yum install -y \
         bc \
         bison \
@@ -63,7 +69,7 @@ RUN set -eux \
         "ansible>=2.9,<2.10" \
         ansible-lint==5.3.2 \
         gcovr==5.0 \
-	pybind11==2.11.1 \
+        pybind11==2.11.1 \
         pycodestyle==2.8.0 \
         shellcheck-py==0.8.0.3 \
         yamllint==1.26.3 && \
