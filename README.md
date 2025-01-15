@@ -70,18 +70,35 @@ Alternatively, DSS can be built natively, but all dependencies must be installed
 
 DSS build and runtime is presently supported on CentOS 7.8.
 
+#### Note about CentOS 7 Deprecation
+
+[CentOS 7 has reached end-of-life.](https://www.redhat.com/en/topics/linux/centos-linux-eol#:~:text=Hat%20Enterprise%20Linux%3F-,Overview,can%20help%20ease%20your%20migration.)
+
+As such, the YUM repositories that enable dependency download on CentOS 7 are no longer available.
+
+However, you may work around this situation with the following steps:
+
+```bash
+sed -i s/mirror.centos.org/vault.centos.org/g /etc/yum.repos.d/*.repo
+sed -i s/^#.*baseurl=http/baseurl=http/g /etc/yum.repos.d/*.repo
+sed -i s/^mirrorlist=http/#mirrorlist=http/g /etc/yum.repos.d/*.repo
+```
+
+When installing some dependencies, this process may need to be repeated to ensure you have access to the archived dependencies.
+
 #### Build package dependencies
 
 Install the following packages / modules to build DSS and its external dependencies:
 
 ```bash
 sudo yum install epel-release centos-release-scl-rh -y
-sudo yum install bc bison boost-devel cmake cmake3 CUnit-devel devtoolset-11 dpkg elfutils-libelf-devel \
-  flex gcc gcc-c++ git glibc-devel gmp-devel jemalloc-devel Judy-devel libaio-devel libcurl-devel libmpc-devel \
-  libuuid-devel make man-db meson mpfr-devel ncurses-devel numactl-devel openssl openssl-devel patch \
-  pulseaudio-libs-devel python3 python3-devel python3-pip rdma-core-devel redhat-lsb-core rpm-build \
+sudo yum install bc bison boost-devel cmake cmake3 cppunit-devel CUnit-devel devtoolset-11 dpkg \
+  elfutils-libelf-devel flex gcc gcc-c++ git glibc-devel gmp-devel golang jemalloc-devel Judy-devel \
+  libaio-devel libcurl-devel libmpc-devel libuuid-devel make man-db meson mpfr-devel ncurses-devel \
+  numactl-devel openssl openssl-devel patch pulseaudio-libs-devel python3 python3-devel python3-pip \
+  rdma-core-devel redhat-lsb-core rpm-build \
   snappy-devel tbb-devel wget zlib-devel -y
-sudo python3 -m pip install pybind11 gcovr==5.0
+sudo python3 -m pip install pybind11==2.11.1 gcovr==5.0
 ```
 
 **NOTE: User-built AWS-SDK-CPP RPM must be installed on the build machine.**
@@ -103,6 +120,7 @@ DSS Dependency build scripts:
 - Build aws-sdk-cpp: `./scripts/build_aws-sdk.sh`
 - Build kernel: `./scripts/build_kernel.sh`
 - Build mlnx-tools: `./scripts/build_mlnx-tools.sh`
+- Install aws-sdk-cpp: `yum install dss-ansible/artifacts/aws-sdk-cpp-1.9-0.x86_64.rpm -y`
 
 DSS individual components:
 
