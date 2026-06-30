@@ -25,11 +25,21 @@ imports:
 
 # Issue Triage Agent
 
-List open issues in ${{ github.repository }} that have no labels. For each unlabeled issue, analyze the title and body, then add one of the allowed labels: `bug`, `feature`, `enhancement`, `documentation`, `question`, `help-wanted`, or `good-first-issue`, `community`.
+For every issue that was just opened or edited (via the triggering event), analyze the title and body, then add one of the allowed labels: `bug`, `feature`, `enhancement`, `documentation`, `question`, `help-wanted`, `good-first-issue`, or `community`.
+
+**Before processing**, fetch the issue's comment list and check the most recent comment. Skip the issue entirely if the last comment was posted by `github-actions[bot]` — this prevents re-triaging issues that the bot has already responded to.
 
 Skip issues that:
-- Already have any of these labels
 - Have been assigned to any user (especially non-bot users)
+
+**Template compliance check**: For every processed issue, evaluate its body against the bug report template at `.github/ISSUE_TEMPLATE/bug_report.md`. The template sections are:
+- **Describe the bug** — clear description of the bug
+- **To Reproduce** — numbered steps to reproduce
+- **Expected behavior** — what was expected
+- **Screenshots** — optional, but note if relevant
+- **DSS context** — DSS context
+
+If the issue body follows the bug report template (either explicitly or in spirit), treat it as a bug report and evaluate it for completeness per the Required Evidence for a Bug section below. If the template is clearly not followed, classify the issue by its content as normal.
 
 After adding the label to an issue, mention the issue author in a comment using this format (follow shared/reporting.md guidelines):
 
@@ -73,6 +83,76 @@ For efficiency, if multiple issues are triaged in a single run:
 3. Optionally: Create a discussion summarizing all triage actions for that run
 
 This provides both per-issue context and batch visibility.
+
+## Repository Context: OpenMPDK/DSS
+
+This agent operates on the [DSS (Disaggregated Storage Solution)](https://github.com/OpenMPDK/DSS) repository. DSS is a rack-scalable, Samsung-developed S3-compatible object storage system using NVMeOf-KV-RDMA protocol with zero-copy transfer optimization.
+
+### Umbrella Repo with Submodules
+
+DSS is an umbrella repository. Issues may originate from or span any of its submodules:
+
+| Submodule | Purpose |
+|-----------|---------|
+| `dss-ansible` | Deployment automation |
+| `dss-ecosystem` | Supporting tools and utilities |
+| `dss-minio` | S3-compatible object storage component |
+| `dss-sdk` | Client-side SDK |
+
+When triaging, identify which submodule an issue concerns and note it in the reasoning. If an issue spans multiple submodules, note the interaction.
+
+### Platform Assumptions
+
+- **Primary OS**: CentOS 7.8. Issues referencing newer distros (RHEL 8/9, Ubuntu, Rocky) may indicate a porting request — label as `feature` or `enhancement` rather than `bug` unless behavior is expected to work on CentOS 7.8 and doesn't.
+- **Build toolchain**: devtoolset-11, cmake, golang, python3, rdma-core-devel, jemalloc-devel.
+- **NIC**: Mellanox ConnectX-5 100GbE (CX-5). Issues mentioning other NICs may be outside the supported matrix.
+- **Storage hardware**: Samsung PM1733 NVMe drives. Issues with other NVMe models may be unsupported configurations.
+
+### RDMA / NVMe Domain Signals
+
+Use these signals when classifying issues:
+
+- **RDMA signals**: `ibverbs`, `rdma-core`, `verbs`, `InfiniBand`, `RoCE`, `connection refused on fabric`, `MR registration`, `QP`, `CQ overflow`, Mellanox/OFED errors → likely a `bug` in the network/transport layer; request RDMA link state and `ibstat`/`ibv_devinfo` output.
+- **NVMe / KV signals**: `spdk`, `nvme-of`, `KV device`, `pm1733`, `target`, `subsystem`, `namespace`, `io_uring`, `bdev` → likely a `bug` or `enhancement` in the storage layer; request `nvme list`, SPDK log, and drive firmware version.
+- **S3 / MinIO signals**: bucket ops, `PUT`/`GET` throughput, presigned URLs, multipart upload → likely rooted in `dss-minio`; request MinIO server version and DSS SDK version.
+- **Deployment / Ansible signals**: playbook failures, inventory errors, role variables → likely rooted in `dss-ansible`; request the Ansible version and failing task output.
+
+### Storage-System Risk Flags
+
+Escalate confidence to **High** and add extra caution in the recommended next steps when an issue involves:
+
+- Data loss or silent corruption (mismatched checksums, truncated objects, `EIO`)
+- RDMA memory registration failures under load (can cause kernel panics)
+- NVMe target crashes or `nvme reset` loops (can take down attached drives)
+- Cluster-wide unavailability (all nodes, all namespaces)
+- Security issues in the S3 API surface (auth bypass, bucket traversal)
+
+For these issues, add a note in the triage comment that the issue may have elevated impact and should be prioritized by a maintainer.
+
+### DSS-Specific Label Guidance
+
+| Scenario | Suggested Label |
+|----------|----------------|
+| Failure on a supported config (CentOS 7.8, CX-5, PM1733) | `bug` |
+| Request to support a new OS, NIC, or drive | `feature` |
+| Throughput regression or latency spike | `bug` (if confirmed regression) or `enhancement` |
+| Deployment / Ansible playbook failure | `bug` |
+| SDK API usability or missing helper | `enhancement` |
+| How-to question about setup or configuration | `question` |
+| Docs gap (missing steps, stale command) | `documentation` |
+| First-time contributor offering a patch area | `good-first-issue` |
+
+## Required Evidence for a Bug
+
+When an issue is labeled `bug`, verify it includes all of the following before confirming the label. If any are missing, request them in the triage comment.
+
+- **Steps to reproduce**: a command, input, minimal sample, or deterministic workflow that triggers the bug.
+- **Expected behavior**: an explicit statement of the intended outcome.
+- **Actual behavior**: an explicit description of the observed failure.
+- **Environment/version**: DSS version/commit, submodule (`dss-ansible`, `dss-ecosystem`, `dss-minio`, `dss-sdk`), OS (CentOS 7.8 or other), kernel version, NIC model/driver (ideally `ibstat` output), NVMe drive model and firmware, SPDK version if applicable.
+- **Test/log evidence**: a failing test, stack trace, logs, trace, screenshot, or minimal reproduction.
+
+If one or more items are missing, still apply the `bug` label (to avoid losing the issue), but add a comment listing exactly what is missing and asking the author to provide it.
 
 ## Labels
 
