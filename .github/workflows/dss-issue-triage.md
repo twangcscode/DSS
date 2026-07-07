@@ -19,6 +19,10 @@ safe-outputs:
   add-labels:
     allowed: [bug, feature, enhancement, documentation, question, help-wanted, good-first-issue]
   add-comment: {}
+  create-pull-request:
+    title-prefix: "[ai] "
+    labels: [ai-generated, needs-review]
+    protected-files: fallback-to-issue
 imports:
   - shared/reporting.md
 ---
@@ -164,3 +168,44 @@ If one or more items are missing, still apply the `bug` label (to avoid losing t
 - `help-wanted`: Indicates that the issue is a good candidate for external contributions and help
 - `good-first-issue`: Marks issues that are suitable for newcomers to the project, often with simpler scope.
 - `community`: Indicates that the issue is related to community engagement, such as events, discussions, or contributions that don't fit into the other categories. From authors who are not contributors to the codebase but are engaging with the project in other ways.
+
+## Coding-Agent Handoff
+
+After triaging a `bug` issue, evaluate whether it is safe and ready to hand off to an automated coding agent for an attempted fix. All five gates below must pass before triggering the agent.
+
+### Eligibility Gates
+
+An issue is eligible for coding-agent handoff **only if all of the following are true**:
+
+1. **Actionable bug** — the issue is labeled `bug` and describes a concrete, reproducible defect (not a feature request, enhancement, question, or documentation gap).
+2. **Full reproduction package** — the issue body contains:
+   - Steps to reproduce (command, input, or deterministic workflow)
+   - Expected behavior
+   - Actual behavior
+   - Environment / version details
+3. **Test evidence** — the issue includes at least one of: a failing test, logs, a stack trace, or a minimal reproduction case.
+4. **Not security-sensitive** — the issue does not involve auth bypass, privilege escalation, data leakage, bucket traversal, or any other security vulnerability. If in doubt, treat as security-sensitive and skip the handoff.
+5. **Not blocked** — the issue does not carry any of the following maintainer labels: `blocked`, `duplicate`, `wontfix`, `question`, `needs-info`.
+
+If any gate fails, skip the coding-agent handoff entirely. Do not comment about the handoff on ineligible issues.
+
+### Handoff Workflow
+
+When all gates pass, execute the following steps in order:
+
+1. **Create branch** — create a branch named `ai-fix/issue-{N}` (where `{N}` is the issue number) from the default branch.
+2. **Run coding agent** — invoke the coding agent on the branch, providing the full issue body (reproduction steps, expected/actual behavior, environment, and any attached logs or stack traces) as context.
+3. **Execute tests** — run the repository's full test suite on the branch after the agent completes.
+4. **Evaluate test results**:
+   - **Tests pass** → push the branch, open a pull request titled `fix: <issue title> (closes #N)`, add the labels `ai-generated` and `needs-review`, and link the PR back to the issue in a comment.
+   - **Tests fail** → post a comment on the issue with the failure summary (which tests failed, relevant log excerpts) and stop. Do **not** open a PR for a failed attempt unless a maintainer has explicitly requested draft PRs for failed automated fixes.
+5. **PR body** (when tests pass) — include:
+   - A summary of the change the coding agent made.
+   - The test command run and its outcome.
+   - A note that this fix was generated automatically and requires human review before merge.
+
+### Safety Constraints
+
+- Never hand off an issue that touches authentication, authorization, encryption, or any surface listed under Storage-System Risk Flags (data loss, RDMA panics, NVMe resets, cluster-wide outages, S3 security).
+- If the coding agent cannot produce a change that makes all tests pass within its allotted budget, it must stop and report failure rather than pushing a partial or speculative fix.
+- The branch and PR are created only after a successful test run — the workflow must not leave open PRs with known test failures.
