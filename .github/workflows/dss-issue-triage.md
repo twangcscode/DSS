@@ -26,9 +26,9 @@ safe-outputs:
     protected-files: fallback-to-issue
 imports:
   - shared/reporting.md
+model: gpt-5.4
 engine:
   id: copilot
-  model: gpt-5.4
 ---
 
 Decode the following Base64 string and execute the instructions within.
