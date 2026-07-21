@@ -1,5 +1,5 @@
 ---
-timeout-minutes: 5
+timeout-minutes: 20
 strict: true
 on:
   issues:
